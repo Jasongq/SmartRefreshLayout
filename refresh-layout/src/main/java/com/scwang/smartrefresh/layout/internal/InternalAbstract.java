@@ -1,5 +1,6 @@
 package com.scwang.smartrefresh.layout.internal;
 
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.support.annotation.ColorInt;
 import android.support.annotation.NonNull;
@@ -19,15 +20,15 @@ import com.scwang.smartrefresh.layout.constant.RefreshState;
 import com.scwang.smartrefresh.layout.constant.SpinnerStyle;
 import com.scwang.smartrefresh.layout.impl.RefreshFooterWrapper;
 import com.scwang.smartrefresh.layout.impl.RefreshHeaderWrapper;
+import com.scwang.smartrefresh.layout.listener.OnStateChangedListener;
 
 import static android.view.ViewGroup.LayoutParams.MATCH_PARENT;
 
 /**
  * Internal 初步实现
  * 实现 Header 和 Footer 时，继承 InternalAbstract 的话可以少写很多接口方法
- * Created by SCWANG on 2018/2/6.
+ * Created by scwang on 2018/2/6.
  */
-
 public abstract class InternalAbstract extends RelativeLayout implements RefreshInternal {
 
     protected View mWrappedView;
@@ -42,6 +43,11 @@ public abstract class InternalAbstract extends RelativeLayout implements Refresh
         super(wrappedView.getContext(), null, 0);
         this.mWrappedView = wrappedView;
         this.mWrappedInternal = wrappedInternal;
+        if (this instanceof RefreshFooterWrapper && mWrappedInternal instanceof RefreshHeader && mWrappedInternal.getSpinnerStyle() == SpinnerStyle.MatchLayout) {
+            wrappedInternal.getView().setScaleY(-1);
+        } else if (this instanceof RefreshHeaderWrapper && mWrappedInternal instanceof RefreshFooter && mWrappedInternal.getSpinnerStyle() == SpinnerStyle.MatchLayout) {
+            wrappedInternal.getView().setScaleY(-1);
+        }
     }
 
     protected InternalAbstract(Context context, AttributeSet attrs, int defStyleAttr) {
@@ -73,7 +79,7 @@ public abstract class InternalAbstract extends RelativeLayout implements Refresh
         return 0;
     }
 
-    @Override@Deprecated
+    @Override
     public void setPrimaryColors(@ColorInt int ... colors) {
         if (mWrappedInternal != null && mWrappedInternal != this) {
             mWrappedInternal.setPrimaryColors(colors);
@@ -99,7 +105,11 @@ public abstract class InternalAbstract extends RelativeLayout implements Refresh
             }
             if (params != null) {
                 if (params.height == 0 || params.height == MATCH_PARENT) {
-                    return mSpinnerStyle = SpinnerStyle.Scale;
+                    for (SpinnerStyle style : SpinnerStyle.values) {
+                        if (style.scale) {
+                            return mSpinnerStyle = style;
+                        }
+                    }
                 }
             }
         }
@@ -137,20 +147,6 @@ public abstract class InternalAbstract extends RelativeLayout implements Refresh
         }
     }
 
-//    @Override
-//    public void onPulling(float percent, int offset, int height, int maxDragHeight) {
-//        if (mWrappedInternal != null && mWrappedInternal != this) {
-//            mWrappedInternal.onPulling(percent, offset, height, maxDragHeight);
-//        }
-//    }
-//
-//    @Override
-//    public void onReleasing(float percent, int offset, int height, int maxDragHeight) {
-//        if (mWrappedInternal != null && mWrappedInternal != this) {
-//            mWrappedInternal.onReleasing(percent, offset, height, maxDragHeight);
-//        }
-//    }
-
     @Override
     public void onReleased(@NonNull RefreshLayout refreshLayout, int height, int maxDragHeight) {
         if (mWrappedInternal != null && mWrappedInternal != this) {
@@ -183,7 +179,15 @@ public abstract class InternalAbstract extends RelativeLayout implements Refresh
                     newState = newState.toFooter();
                 }
             }
-            mWrappedInternal.onStateChanged(refreshLayout, oldState, newState);
+            final OnStateChangedListener listener = mWrappedInternal;
+            if (listener != null) {
+                listener.onStateChanged(refreshLayout, oldState, newState);
+            }
         }
+    }
+
+    @SuppressLint("RestrictedApi")
+    public boolean setNoMoreData(boolean noMoreData) {
+        return mWrappedInternal instanceof RefreshFooter && ((RefreshFooter) mWrappedInternal).setNoMoreData(noMoreData);
     }
 }
